@@ -1,4 +1,5 @@
 import yts from 'yt-search'
+import axios from 'axios'
 import fetch from 'node-fetch'
 import { getBuffer } from '../../core/message.js'
 
@@ -34,7 +35,6 @@ export default {
           const vistas = (videoInfo.views || 0).toLocaleString()
           const canal = videoInfo.author?.name || 'Desconocido'
 
-          // FORMATO ORIGINAL DE TU BOT
           const infoMessage = `➩ Descargando › *${title}*
 
 > ❖ Canal › *${canal}*
@@ -49,59 +49,58 @@ export default {
         console.error("Error al obtener info del video:", err)
       }
 
-      // Obtenemos el link usando solo la nueva API
+      // Obtenemos el link de la API de Zenzxz
       const video = await getVideoFromApis(url)
       
       if (!video?.url) {
-        return m.reply('《✧》 No se pudo descargar el *video*, la API está temporalmente caída. Intenta más tarde.')
+        return m.reply('《✧》 No se pudo descargar el *video*, la API está saturada. Intenta más tarde.')
       }
 
-      // ENVÍO DIRECTO POR URL PARA EVITAR ERRORES DE MEMORIA
+      // 🔥 DESCARGA CON AXIOS PARA EVITAR CORRUPCIÓN
+      const response = await axios({
+        method: 'get',
+        url: video.url,
+        responseType: 'arraybuffer',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+          'Accept': '*/*'
+        }
+      })
+
+      const videoBuffer = Buffer.from(response.data)
+
+      // Verificamos si el video no es demasiado pequeño (error)
+      if (videoBuffer.length < 50000) {
+        return m.reply('《✧》 El archivo descargado no es válido. Prueba con otro enlace.')
+      }
+
+      // 🔥 ENVIAMOS CON THUMBNAIL Y CAPTION PARA QUE WHATSAPP LO RECONOZCA
       await client.sendMessage(m.chat, { 
-        video: { url: video.url }, 
-        fileName: `${title || 'video'}.mp4`, 
-        mimetype: 'video/mp4' 
+        video: videoBuffer, 
+        mimetype: 'video/mp4',
+        caption: `> 🎥 *${title || 'Video'}*`,
+        fileName: `${title || 'video'}.mp4`,
+        thumbnail: thumbBuffer // Esto ayuda a WhatsApp a cargar el video correctamente
       }, { quoted: m })
 
     } catch (e) {
       console.error(e)
-      await m.reply(`> An unexpected error occurred while executing command *${usedPrefix + command}*. Please try again or contact support if the issue persists.\n> [Error: *${e.message}*]`)
+      await m.reply(`> Error crítico: *${e.message}*`)
     }
   }
 }
 
-// 🔥 SISTEMA DE API ÚNICA (ZENZXZ)
 async function getVideoFromApis(url) {
-  const apis = [
-    { 
-      api: 'Zenzxz', 
-      // 🔥 RUTA NUEVA A 480p
-      endpoint: `https://api.zenzxz.my.id/download/youtube?url=${encodeURIComponent(url)}&format=480`, 
-      // 🔥 EXTRACCIÓN BASADA EN TU JSON: result.download
-      extractor: res => res?.result?.download
+  try {
+    // 🔥 CAMBIAMOS A format=360 PARA ASEGURAR COMPATIBILIDAD DE CÓDEC
+    const endpoint = `https://api.zenzxz.my.id/download/youtube?url=${encodeURIComponent(url)}&format=360`
+    const res = await fetch(endpoint).then(r => r.json())
+    
+    if (res.status && res.result?.download) {
+      return { url: res.result.download }
     }
-  ]
-
-  for (const { api, endpoint, extractor } of apis) {
-    try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 20000) 
-      
-      const response = await fetch(endpoint, { signal: controller.signal })
-      const res = await response.json()
-      
-      clearTimeout(timeout)
-      
-      const link = extractor(res)
-      if (link) {
-        console.log(`✅ Video descargado usando API: ${api}`)
-        return { url: link }
-      }
-      
-    } catch (e) {
-      console.log(`❌ Fallo en la API ${api}:`, e.message)
-    }
+  } catch (e) {
+    console.log("Error en API Zenzxz:", e.message)
   }
-  
   return null
 }
