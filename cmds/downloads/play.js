@@ -102,9 +102,7 @@ export default {
       } else if (['play2', 'ytv', 'mp4', 'play4', 'ytvdoc', 'play2doc', 'ytmp4doc'].includes(command)) {
         const docMode = ['play4', 'ytvdoc', 'play2doc', 'ytmp4doc'].includes(command);
         const fuentes = [
-          { sistema: "evogb", url: `${api.url}/dl/ytmp4?url=${encodeURIComponent(url)}&quality=auto&key=${api.key}` },
-            { sistema: "sylphy", url: `${api.url3}/download/ytmp4?url=${encodeURIComponent(url)}&q=720p&api_key=${api.key3}` },
-          { sistema: "Stellar", url: `${api.url2}/dl/ytmp4?url=${encodeURIComponent(url)}&quality=720&key=${api.key2}` }
+          { sistema: "evogb", url: `${api.url}/dl/ytmp4?url=${encodeURIComponent(url)}&quality=auto&key=${api.key}` }
           ];
         for (let fuente of fuentes) {
           try {
