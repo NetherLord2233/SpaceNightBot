@@ -31,49 +31,27 @@ export default {
           url = videoInfo.url
           title = videoInfo.title
           thumbBuffer = await getBuffer(videoInfo.image)
-          const vistas = (videoInfo.views || 0).toLocaleString()
-          const canal = videoInfo.author?.name || 'Desconocido'
-          const infoMessage = `➩ Descargando › *${title}*
-
-> ❖ Canal › *${canal}*
-> ⴵ Duración › *${videoInfo.timestamp || 'Desconocido'}*
-> ❀ Vistas › *${vistas}*
-> ✩ Publicado › *${videoInfo.ago || 'Desconocido'}*
-> ❒ Enlace › *${url}*`
+          
+          // 🔥 NUEVO FORMATO DE MENSAJE BASADO EN TU EJEMPLO
+          const infoMessage = `*${title}*\n*⇄ㅤ     ◁   ㅤ  ❚❚ㅤ     ▷ㅤ     ↻*\n\n*⏰ Duración:* ${videoInfo.timestamp || 'Desconocido'}\n*👉🏻 Aguarde un momento en lo que envío su video*`
+          
           await client.sendMessage(m.chat, { image: thumbBuffer, caption: infoMessage }, { quoted: m })
         }
       } catch (err) {
         console.error("Error al obtener info del video:", err)
       }
 
-      const video = await getVideoFromApis(url)
+      // Pedimos el enlace a la nueva lista de APIs
+      const video = await getVideoFromApis(url, title)
       
       if (!video?.url) {
-        return m.reply('《✧》 No se pudo procesar el *video*, intenta más tarde o verifica el enlace.')
+        return m.reply('《✧》 No se pudo descargar el *video*, las APIs están caídas. Intenta más tarde.')
       }
 
-      await m.reply('⏳ Procesando y descargando el video, por favor espera un momento...')
-
-      // 🔥 FETCH SIN FILTRO ESTRICTO DE ETIQUETA, SOLO PESO
-      const response = await fetch(video.url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': '*/*'
-        }
-      })
-      
-      const arrayBuffer = await response.arrayBuffer()
-      const videoBuffer = Buffer.from(arrayBuffer)
-
-      // Si pesa menos de 50KB, es una página de error o captcha de la API
-      if (videoBuffer.length < 50000) {
-        return m.reply('《✧》 Error en la descarga: El servidor de descargas bloqueó el acceso o el video está corrupto.')
-      }
-
-      // ENVIAMOS EL ARCHIVO COMO VIDEO MP4
+      // 🔥 ENVÍO DIRECTO POR URL PARA EVITAR CORRUPCIÓN DE ARCHIVO
       await client.sendMessage(m.chat, { 
-        video: videoBuffer, 
-        caption: `> 🎥 *${title || 'Video'}*`,
+        video: { url: video.url }, 
+        caption: `> 🎥 *${title || 'Video'}*\n> Descargado vía: ${video.api}`,
         fileName: `${title || 'video'}.mp4`, 
         mimetype: 'video/mp4' 
       }, { quoted: m })
@@ -85,19 +63,44 @@ export default {
   }
 }
 
-async function getVideoFromApis(url) {
+// 🔥 LISTA DE APIS EXTRAÍDAS DEL EJEMPLO Y FUSIONADAS
+async function getVideoFromApis(url, title = "") {
   const apis = [
+    // La API de EvoGB que ya teníamos como principal
     { 
-      api: 'EvoGB_ytmp4', 
-      endpoint: `https://api.evogb.org/dl/ytmp4?url=${encodeURIComponent(url)}&quality=480&key=Alba070503`, 
-      extractor: res => res?.data?.dl 
+      api: 'EvoGB', 
+      endpoint: `https://api.evogb.org/dl/youtubeplay?query=${encodeURIComponent(url)}&type=video&quality=480&key=Alba070503`, 
+      extractor: res => res?.data?.download?.url 
+    },
+    // Nuevas APIs extraídas del código de ejemplo
+    { 
+      api: 'Siputzx', 
+      endpoint: `https://api.siputzx.my.id/api/d/ytmp4?url=${encodeURIComponent(url)}`, 
+      extractor: res => res?.dl 
+    },
+    { 
+      api: 'Neoxr', 
+      endpoint: `https://api.neoxr.eu/api/youtube?url=${encodeURIComponent(url)}&type=video&quality=720p&apikey=GataDios`, 
+      extractor: res => res?.data?.url 
+    },
+    { 
+      api: 'Fgmods', 
+      endpoint: `https://api.fgmods.xyz/api/downloader/ytmp4?url=${encodeURIComponent(url)}&apikey=elrebelde21`, 
+      extractor: res => res?.result?.dl_url 
+    },
+    { 
+      api: 'Exonity', 
+      // Exonity usa el título de la canción en lugar de la URL según el código de ejemplo
+      endpoint: `https://exonity.tech/api/dl/playmp4?query=${encodeURIComponent(title || url)}`, 
+      extractor: res => res?.result?.download 
     }
   ]
 
+  // Bucle que intenta descargar de una API, y si falla, pasa a la siguiente
   for (const { api, endpoint, extractor } of apis) {
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 40000) // Le di 40 segundos porque los videos tardan
+      const timeout = setTimeout(() => controller.abort(), 20000) // 20 segundos por API
       
       const response = await fetch(endpoint, { signal: controller.signal })
       const res = await response.json()
@@ -105,10 +108,13 @@ async function getVideoFromApis(url) {
       clearTimeout(timeout)
       
       const link = extractor(res)
-      if (link) return { url: link, api }
+      if (link) {
+        console.log(`✅ Enlace encontrado usando API: ${api}`)
+        return { url: link, api }
+      }
       
     } catch (e) {
-      console.error(`Fallo en la API ${api}:`, e.message)
+      console.log(`❌ Fallo en la API ${api}:`, e.message)
     }
   }
   
