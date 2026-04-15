@@ -1,21 +1,21 @@
 import axios from "axios"
 import FormData from "form-data"
 
-function formatBytes(bytes: number): string {
+function formatBytes(bytes) {
   if (bytes === 0) return "0 B"
   const sizes = ["B", "KB", "MB", "GB", "TB"]
   const i = Math.floor(Math.log(bytes) / Math.log(1024))
   return `${(bytes / 1024 ** i).toFixed(2)} ${sizes[i]}`
 }
 
-function generateUniqueFilename(mime: string): string {
+function generateUniqueFilename(mime) {
   const ext = mime.split("/")[1] || "bin"
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
   let id = Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join("")
   return `${id}.${ext}`
 }
 
-async function uploadCatbox(buffer: Buffer, mime: string): Promise<string> {
+async function uploadCatbox(buffer, mime) {
   const form = new FormData()
   form.append("reqtype", "fileupload")
   form.append("fileToUpload", buffer, { filename: generateUniqueFilename(mime) })
@@ -32,7 +32,7 @@ async function uploadCatbox(buffer: Buffer, mime: string): Promise<string> {
   return res.data
 }
 
-async function uploadUguu(buffer: Buffer): Promise<string> {
+async function uploadUguu(buffer) {
   const form = new FormData()
   form.append("files[]", buffer, generateUniqueFilename("image/jpeg"))
 
@@ -48,7 +48,7 @@ async function uploadUguu(buffer: Buffer): Promise<string> {
   return url
 }
 
-async function uploadQuax(buffer: Buffer, mime: string): Promise<string> {
+async function uploadQuax(buffer, mime) {
   const form = new FormData()
   form.append("file", buffer, { filename: generateUniqueFilename(mime), contentType: mime })
 
@@ -63,7 +63,7 @@ async function uploadQuax(buffer: Buffer, mime: string): Promise<string> {
   return data.files[0].url
 }
 
-async function uploadAuto(buffer: Buffer, mime: string): Promise<{ link: string, server: string }> {
+async function uploadAuto(buffer, mime) {
   try {
     return { link: await uploadCatbox(buffer, mime), server: "catbox" }
   } catch {
@@ -78,7 +78,7 @@ async function uploadAuto(buffer: Buffer, mime: string): Promise<{ link: string,
 export default {
   command: ["tourl"],
   category: "utils",
-    run: async (client, m, args, usedPrefix, command) => {
+  run: async (client, m, args, usedPrefix, command) => {
     const q = m.quoted || m
     const mime = (q.msg || q).mimetype || ""
     if (!mime) {
@@ -98,7 +98,7 @@ export default {
       if (!media) return m.reply("ꕥ No se pudo descargar el archivo.")
 
       const serverArg = args[0]?.toLowerCase() || "auto"
-      let link: string, server: string
+      let link, server // 🔥 Aquí también quité los tipos
 
       if (serverArg === "catbox") {
         link = await uploadCatbox(media, mime)
@@ -116,11 +116,15 @@ export default {
       }
 
       const userName = m.pushName || "Usuario"
+      
+      // ⚠️ NOTA: Si tu bot da error diciendo que "dev is not defined", borra la palabra ${dev} de abajo.
+      const devName = typeof dev !== 'undefined' ? dev : ''
+
       const upload = `𖹭 ❀ *Upload To ${server.toUpperCase()}*\n\n` +
         `ׅ  ׄ  ✿   ׅ り *Link ›* ${link}\n` +
         `ׅ  ׄ  ✿   ׅ り *Peso ›* ${formatBytes(media.length)}\n` +
         `ׅ  ׄ  ✿   ׅ り *Tipo ›* ${mime.split("/")[1].toUpperCase() || "UNKNOWN"}\n` +
-        `ׅ  ׄ  ✿   ׅ り *Solicitado por ›* ${userName}\n\n${dev}`
+        `ׅ  ׄ  ✿   ׅ り *Solicitado por ›* ${userName}\n\n${devName}`
 
       return m.reply(upload)
     } catch (e) {
