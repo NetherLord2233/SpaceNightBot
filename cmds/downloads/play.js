@@ -1,3 +1,4 @@
+//error en t async Object.run (file:///home/container/cmds/downloads/play.js?update=1776214188745:64:2
 import fetch from "node-fetch";
 import yts from "yt-search";
 import axios from "axios";
