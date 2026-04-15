@@ -14,11 +14,9 @@ async function getVideoInfo(query, videoMatch) {
   return videoInfo || null
 }
 
-// 🔥 FUNCIÓN FFMPEG: Convierte cualquier video rebelde al formato sagrado de WhatsApp
 function convertToWhatsAppFormat(inputPath, outputPath) {
   return new Promise((resolve, reject) => {
-    // scale=... achica el video a 480p máximo. 
-    // crop=... fuerza a que los píxeles sean números PARES cortando 1px si es necesario (soluciona el error de libx264)
+    // scale y crop aseguran que la resolución sea par y máximo 480p
     const command = `ffmpeg -i "${inputPath}" -c:v libx264 -c:a aac -preset superfast -crf 28 -b:a 128k -vf "scale='min(854,iw)':'min(480,ih)':force_original_aspect_ratio=decrease,crop=trunc(iw/2)*2:trunc(ih/2)*2" -y "${outputPath}"`
     
     exec(command, (error, stdout, stderr) => {
@@ -48,21 +46,18 @@ export default {
       const query = videoMatch ? 'https://youtu.be/' + videoMatch[1] : text
       let url = query, title = null, thumbBuffer = null
 
-      // 1. Obtener información y enviar el mensaje con el formato ORIGINAL de tu bot
       try {
         const videoInfo = await getVideoInfo(query, videoMatch)
         if (videoInfo) {
           url = videoInfo.url
           title = videoInfo.title
           thumbBuffer = await getBuffer(videoInfo.image)
-          const vistas = (videoInfo.views || 0).toLocaleString()
-          const canal = videoInfo.author?.name || 'Desconocido'
-
+          
           const infoMessage = `➩ Descargando › *${title}*
 
-> ❖ Canal › *${canal}*
+> ❖ Canal › *${videoInfo.author?.name || 'Desconocido'}*
 > ⴵ Duración › *${videoInfo.timestamp || 'Desconocido'}*
-> ❀ Vistas › *${vistas}*
+> ❀ Vistas › *${(videoInfo.views || 0).toLocaleString()}*
 > ✩ Publicado › *${videoInfo.ago || 'Desconocido'}*
 > ❒ Enlace › *${url}*`
 
@@ -72,49 +67,49 @@ export default {
         console.error("Error al obtener info del video:", err)
       }
 
-      // 2. Obtener el link de descarga usando la API de EvoGB
       const video = await getVideoFromEvoGB(url)
       
       if (!video?.url) {
-        return m.reply('《✧》 No se pudo obtener el enlace de descarga de EvoGB. Intenta más tarde.')
+        return m.reply('❌ No se pudo obtener el enlace de la API. Intenta más tarde.')
       }
 
-      await m.reply('⏳ Procesando y adaptando el video para WhatsApp (FFmpeg)...')
+      await m.reply('⏳ *Paso 1:* Descargando video del servidor...')
 
-      // 3. Descargamos el video bruto con Axios simulando ser Chrome
       const response = await axios({
         method: 'get',
         url: video.url,
         responseType: 'arraybuffer',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
           'Referer': 'https://api.evogb.org/'
         }
       })
 
       const rawBuffer = Buffer.from(response.data)
 
-      // Verificamos que EvoGB no nos haya mandado una página de error
-      const checkContent = rawBuffer.toString('utf-8', 0, 100).toLowerCase()
-      if (checkContent.includes('<!doctype html>') || checkContent.includes('<html')) {
-         return m.reply('❌ EvoGB bloqueó la descarga temporalmente.')
-      }
       if (rawBuffer.length < 100000) {
-        return m.reply('❌ El archivo descargado está dañado o vacío.')
+        return m.reply('❌ Error: El archivo descargado está vacío o bloqueado.')
       }
 
-      // 4. Guardamos el video bruto
       fs.writeFileSync(tempInput, rawBuffer)
 
-      // 5. Lo pasamos por la "licuadora" de FFmpeg
+      await m.reply('⏳ *Paso 2:* Adaptando formato para WhatsApp (esto puede demorar unos segundos)...')
+
       await convertToWhatsAppFormat(tempInput, tempOutput)
 
-      // 6. Leemos el video convertido y 100% compatible
-      const finalVideoBuffer = fs.readFileSync(tempOutput)
+      // Verificamos cuánto pesa el video final convertido
+      const stats = fs.statSync(tempOutput)
+      const fileSizeMB = stats.size / (1024 * 1024)
 
-      // 7. Lo enviamos como video normal a WhatsApp
+      if (fileSizeMB > 50) {
+        return m.reply(`❌ El video resultante pesa demasiado (${fileSizeMB.toFixed(2)} MB). WhatsApp solo permite hasta 50MB.`)
+      }
+
+      await m.reply('✅ *Paso 3:* Conversión exitosa. Subiendo video al chat...')
+
+      // 🔥 ENVIAMOS USANDO STREAM DIRECTO DESDE EL DISCO (Evita crash de memoria RAM)
       await client.sendMessage(m.chat, { 
-        video: finalVideoBuffer, 
+        video: { stream: fs.createReadStream(tempOutput) }, 
         mimetype: 'video/mp4',
         fileName: `${title || 'video'}.mp4`,
         caption: `> 🎥 *${title || 'Video'}*`
@@ -122,22 +117,19 @@ export default {
 
     } catch (e) {
       console.error(e)
-      await m.reply(`> Error al procesar el video: *${e.message}*\n> (Verifica que tu hosting tenga FFmpeg instalado)`)
+      await m.reply(`> ❌ Ocurrió un error en el proceso: *${e.message}*`)
     } finally {
-      // 8. Limpieza obligatoria para que tu servidor no se llene de videos
+      // Limpiamos los archivos temporales
       if (fs.existsSync(tempInput)) fs.unlinkSync(tempInput)
       if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput)
     }
   }
 }
 
-// 🔥 API EXCLUSIVA: EvoGB (Endpoint ytmp4)
 async function getVideoFromEvoGB(url) {
   try {
     const endpoint = `https://api.evogb.org/dl/ytmp4?url=${encodeURIComponent(url)}&quality=480&key=Alba070503`
     const res = await fetch(endpoint).then(r => r.json())
-    
-    // Extractor basado en la documentación de EvoGB (data.dl)
     if (res.status && res.data?.dl) {
       return { url: res.data.dl }
     }
