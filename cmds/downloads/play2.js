@@ -49,11 +49,11 @@ export default {
         console.error("Error al obtener info del video:", err)
       }
 
-      // Obtenemos el link de las nuevas APIs
-      const video = await getVideoFromApis(url, title)
+      // Obtenemos el link usando solo la nueva API
+      const video = await getVideoFromApis(url)
       
       if (!video?.url) {
-        return m.reply('《✧》 No se pudo descargar el *video*, las APIs están temporalmente caídas. Intenta más tarde.')
+        return m.reply('《✧》 No se pudo descargar el *video*, la API está temporalmente caída. Intenta más tarde.')
       }
 
       // ENVÍO DIRECTO POR URL PARA EVITAR ERRORES DE MEMORIA
@@ -70,14 +70,15 @@ export default {
   }
 }
 
-// 🔥 SISTEMA DE APIS CON MITZUKI COMO PRINCIPAL (EVOGB ELIMINADO)
-async function getVideoFromApis(url, title = "") {
+// 🔥 SISTEMA DE API ÚNICA (ZENZXZ)
+async function getVideoFromApis(url) {
   const apis = [
     { 
-      api: 'Mitzuki', 
-      endpoint: `https://api.mitzuki.xyz/api/downloader/ytmp4?url=${encodeURIComponent(url)}&apikey=elrebelde21`, 
-      // Extracción basada en tu JSON: data.media.dl_download
-      extractor: res => res?.data?.media?.dl_download || res?.data?.media?.dl_inline
+      api: 'Zenzxz', 
+      // 🔥 RUTA NUEVA A 480p
+      endpoint: `https://api.zenzxz.my.id/download/youtube?url=${encodeURIComponent(url)}&format=480`, 
+      // 🔥 EXTRACCIÓN BASADA EN TU JSON: result.download
+      extractor: res => res?.result?.download
     }
   ]
 
