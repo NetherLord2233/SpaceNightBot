@@ -53,25 +53,29 @@ export default {
         return m.reply('《✧》 No se pudo descargar el *video*, intenta más tarde o verifica el enlace.')
       }
 
-      // 🔥 FIX ANTICORRUPCIÓN: Descargamos con Fetch forzando un User-Agent real
+      // 🔥 FETCH ESTRICTO CON VERIFICACIÓN DE TIPO DE ARCHIVO
       const response = await fetch(video.url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': '*/*'
+          'Accept': '*/*',
+          'Referer': 'https://api.evogb.org/'
         }
       })
       
+      // Verificamos qué tipo de archivo nos entregó el servidor
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('video')) {
+        console.log("El servidor devolvió un tipo incorrecto:", contentType);
+        return m.reply('《✧》 El servidor bloqueó la descarga (Protección anti-bots) o el archivo es muy pesado. Intenta con un video más corto.')
+      }
+
       const arrayBuffer = await response.arrayBuffer()
       const videoBuffer = Buffer.from(arrayBuffer)
-
-      // Verificamos que el archivo sea un video real (que pese más de 50KB)
-      if (videoBuffer.length < 50000) {
-        return m.reply('《✧》 El servidor de descarga bloqueó la solicitud o el video no está disponible. Intenta con otro video o más tarde.')
-      }
 
       // ENVIAMOS EL ARCHIVO COMO VIDEO MP4
       await client.sendMessage(m.chat, { 
         video: videoBuffer, 
+        caption: `> 🎥 *${title || 'Video'}*`,
         fileName: `${title || 'video'}.mp4`, 
         mimetype: 'video/mp4' 
       }, { quoted: m })
@@ -87,9 +91,8 @@ async function getVideoFromApis(url) {
   const apis = [
     { 
       api: 'EvoGB_Video', 
-      // 🔥 RUTA ACTUALIZADA: type=video y quality=480 para asegurar que WhatsApp lo envíe sin problema de peso
-      endpoint: `https://api.evogb.org/dl/youtubeplay?query=${encodeURIComponent(url)}&type=video&quality=480&key=Alba070503`, 
-      // 🔥 EXTRAE LA URL DESDE LA NUEVA ESTRUCTURA DEL JSON
+      // 🔥 BAJAMOS A 360p (quality=360) PARA NO ROMPER LOS LÍMITES DE WHATSAPP
+      endpoint: `https://api.evogb.org/dl/youtubeplay?query=${encodeURIComponent(url)}&type=video&quality=360&key=Alba070503`, 
       extractor: res => res?.data?.download?.url 
     }
   ]
@@ -97,8 +100,7 @@ async function getVideoFromApis(url) {
   for (const { api, endpoint, extractor } of apis) {
     try {
       const controller = new AbortController()
-      // Aumenté el timeout a 30 segundos, porque convertir y preparar video toma más tiempo que el audio
-      const timeout = setTimeout(() => controller.abort(), 30000) 
+      const timeout = setTimeout(() => controller.abort(), 35000) // 35s, los videos toman tiempo
       
       const response = await fetch(endpoint, { signal: controller.signal })
       const res = await response.json()
