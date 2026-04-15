@@ -1,6 +1,8 @@
 import yts from 'yt-search'
 import fetch from 'node-fetch'
 import { getBuffer } from '../../core/message.js'
+import fs from 'fs'
+import { exec } from 'child_process'
 
 const isYTUrl = (url) => /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/i.test(url)
 
@@ -9,6 +11,22 @@ async function getVideoInfo(query, videoMatch) {
   if (!search.all.length) return null
   const videoInfo = videoMatch ? search.videos.find(v => v.videoId === videoMatch[1]) || search.all[0] : search.all[0]
   return videoInfo || null
+}
+
+// 🔥 FUNCIÓN MÁGICA PARA CONVERTIR MP3 A OGG(OPUS) PARA WHATSAPP
+function toAudio(buffer, ext) {
+  return new Promise((resolve, reject) => {
+    let tmp = `./tmp_${Date.now()}.${ext}`
+    let out = tmp + '.ogg'
+    fs.writeFileSync(tmp, buffer)
+    exec(`ffmpeg -i ${tmp} -vn -c:a libopus -b:a 128k -vbr on -compression_level 10 ${out}`, (err, stderr, stdout) => {
+      fs.unlinkSync(tmp)
+      if (err) return reject(err)
+      let opusBuffer = fs.readFileSync(out)
+      fs.unlinkSync(out)
+      resolve(opusBuffer)
+    })
+  })
 }
 
 export default {
@@ -46,34 +64,36 @@ export default {
         console.error("Error al obtener info del video:", err)
       }
 
-      // Llamamos a la nueva función con la API actualizada
       const audio = await getAudioFromApis(url)
       
       if (!audio?.url) {
         return m.reply('《✧》 No se pudo descargar el *audio*, intenta más tarde o verifica el enlace.')
       }
 
-      const audioBuffer = await getBuffer(audio.url)
+      // Descargamos el MP3 de la API
+      const mp3Buffer = await getBuffer(audio.url)
+      
+      // 🔥 LO CONVERTIMOS A FORMATO NOTA DE VOZ DE WHATSAPP
+      const opusBuffer = await toAudio(mp3Buffer, 'mp3')
       
       await client.sendMessage(m.chat, { 
-        audio: audioBuffer, 
-        fileName: `${title || 'audio'}.mp3`, 
-        mimetype: 'audio/mpeg' 
+        audio: opusBuffer, 
+        mimetype: 'audio/ogg; codecs=opus',
+        ptt: true // Ahora sí es una nota de voz real
       }, { quoted: m })
 
     } catch (e) {
+      console.error(e)
       await m.reply(`> Ocurrió un error inesperado al ejecutar *${usedPrefix + command}*.\n> [Error: *${e.message}*]`)
     }
   }
 }
 
 async function getAudioFromApis(url) {
-  // Nueva API funcional inyectada aquí
   const apis = [
     { 
       api: 'EvoGB', 
       endpoint: `https://api.evogb.org/dl/ytmp3?url=${encodeURIComponent(url)}&key=Alba070503`, 
-      // Según la documentación que pasaste, el enlace de descarga está en data.dl
       extractor: res => res?.data?.dl 
     }
   ]
@@ -81,7 +101,7 @@ async function getAudioFromApis(url) {
   for (const { api, endpoint, extractor } of apis) {
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 15000) // Aumenté el timeout a 15s por si la API demora en procesar
+      const timeout = setTimeout(() => controller.abort(), 20000) 
       
       const response = await fetch(endpoint, { signal: controller.signal })
       const res = await response.json()
