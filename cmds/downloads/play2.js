@@ -46,34 +46,28 @@ export default {
         console.error("Error al obtener info del video:", err)
       }
 
-      // Pedimos el enlace a la NUEVA API (ytmp4)
       const video = await getVideoFromApis(url)
       
       if (!video?.url) {
         return m.reply('《✧》 No se pudo procesar el *video*, intenta más tarde o verifica el enlace.')
       }
 
-      // 🔥 DESCARGAMOS EL VIDEO CON PROTECCIÓN ANTI-BLOQUEO
+      await m.reply('⏳ Procesando y descargando el video, por favor espera un momento...')
+
+      // 🔥 FETCH SIN FILTRO ESTRICTO DE ETIQUETA, SOLO PESO
       const response = await fetch(video.url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': '*/*',
-          'Referer': 'https://api.evogb.org/'
+          'Accept': '*/*'
         }
       })
       
-      const contentType = response.headers.get('content-type')
-      if (!contentType || (!contentType.includes('video') && !contentType.includes('octet-stream'))) {
-        console.log("El servidor devolvió un tipo incorrecto:", contentType);
-        return m.reply('《✧》 El servidor bloqueó la descarga o el archivo es muy pesado. Intenta con un video más corto.')
-      }
-
       const arrayBuffer = await response.arrayBuffer()
       const videoBuffer = Buffer.from(arrayBuffer)
 
-      // Verificación de seguridad por peso
+      // Si pesa menos de 50KB, es una página de error o captcha de la API
       if (videoBuffer.length < 50000) {
-        return m.reply('《✧》 Error en la descarga: El archivo recibido está corrupto o vacío.')
+        return m.reply('《✧》 Error en la descarga: El servidor de descargas bloqueó el acceso o el video está corrupto.')
       }
 
       // ENVIAMOS EL ARCHIVO COMO VIDEO MP4
@@ -95,9 +89,7 @@ async function getVideoFromApis(url) {
   const apis = [
     { 
       api: 'EvoGB_ytmp4', 
-      // 🔥 RUTA ACTUALIZADA AL NUEVO ENDPOINT (ytmp4)
       endpoint: `https://api.evogb.org/dl/ytmp4?url=${encodeURIComponent(url)}&quality=480&key=Alba070503`, 
-      // 🔥 EXTRACTOR ACTUALIZADO: Ahora la URL de descarga viene en data.dl
       extractor: res => res?.data?.dl 
     }
   ]
@@ -105,7 +97,7 @@ async function getVideoFromApis(url) {
   for (const { api, endpoint, extractor } of apis) {
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 35000) // 35s de margen
+      const timeout = setTimeout(() => controller.abort(), 40000) // Le di 40 segundos porque los videos tardan
       
       const response = await fetch(endpoint, { signal: controller.signal })
       const res = await response.json()
