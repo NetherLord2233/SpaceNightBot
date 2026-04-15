@@ -46,14 +46,14 @@ export default {
         console.error("Error al obtener info del video:", err)
       }
 
-      // Pedimos el enlace a la API
+      // Pedimos el enlace a la NUEVA API (ytmp4)
       const video = await getVideoFromApis(url)
       
       if (!video?.url) {
-        return m.reply('《✧》 No se pudo descargar el *video*, intenta más tarde o verifica el enlace.')
+        return m.reply('《✧》 No se pudo procesar el *video*, intenta más tarde o verifica el enlace.')
       }
 
-      // 🔥 FETCH ESTRICTO CON VERIFICACIÓN DE TIPO DE ARCHIVO
+      // 🔥 DESCARGAMOS EL VIDEO CON PROTECCIÓN ANTI-BLOQUEO
       const response = await fetch(video.url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -62,15 +62,19 @@ export default {
         }
       })
       
-      // Verificamos qué tipo de archivo nos entregó el servidor
       const contentType = response.headers.get('content-type')
-      if (!contentType || !contentType.includes('video')) {
+      if (!contentType || (!contentType.includes('video') && !contentType.includes('octet-stream'))) {
         console.log("El servidor devolvió un tipo incorrecto:", contentType);
-        return m.reply('《✧》 El servidor bloqueó la descarga (Protección anti-bots) o el archivo es muy pesado. Intenta con un video más corto.')
+        return m.reply('《✧》 El servidor bloqueó la descarga o el archivo es muy pesado. Intenta con un video más corto.')
       }
 
       const arrayBuffer = await response.arrayBuffer()
       const videoBuffer = Buffer.from(arrayBuffer)
+
+      // Verificación de seguridad por peso
+      if (videoBuffer.length < 50000) {
+        return m.reply('《✧》 Error en la descarga: El archivo recibido está corrupto o vacío.')
+      }
 
       // ENVIAMOS EL ARCHIVO COMO VIDEO MP4
       await client.sendMessage(m.chat, { 
@@ -90,17 +94,18 @@ export default {
 async function getVideoFromApis(url) {
   const apis = [
     { 
-      api: 'EvoGB_Video', 
-      // 🔥 BAJAMOS A 360p (quality=360) PARA NO ROMPER LOS LÍMITES DE WHATSAPP
-      endpoint: `https://api.evogb.org/dl/youtubeplay?query=${encodeURIComponent(url)}&type=video&quality=360&key=Alba070503`, 
-      extractor: res => res?.data?.download?.url 
+      api: 'EvoGB_ytmp4', 
+      // 🔥 RUTA ACTUALIZADA AL NUEVO ENDPOINT (ytmp4)
+      endpoint: `https://api.evogb.org/dl/ytmp4?url=${encodeURIComponent(url)}&quality=480&key=Alba070503`, 
+      // 🔥 EXTRACTOR ACTUALIZADO: Ahora la URL de descarga viene en data.dl
+      extractor: res => res?.data?.dl 
     }
   ]
 
   for (const { api, endpoint, extractor } of apis) {
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 35000) // 35s, los videos toman tiempo
+      const timeout = setTimeout(() => controller.abort(), 35000) // 35s de margen
       
       const response = await fetch(endpoint, { signal: controller.signal })
       const res = await response.json()
