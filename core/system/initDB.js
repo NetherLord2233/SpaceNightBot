@@ -11,8 +11,8 @@ function initDB(m, client) {
   settings.nameid ??= "'ೃ࿔  tׁׅᨵׁׅׅhׁׅ֮ƙׁׅɑׁׅ ᨮׁׅ֮ɑׁׅtׁׅᨵׁׅׅᧁׁɑׁׅꩇׁׅ֪݊ ꪱׁׁׁׅׅׅ - ᝯׁ֒hׁׅ֮ɑׁׅ݊ꪀ݊ꪀꫀׁׅܻ݊ᥣׁׅ֪ ᨵׁׅׅܻ⨍ܻ⨍ꪱׁׁׁׅׅׅᝯׁ֒ꪱׁׁׁׅׅׅɑׁׅᥣׁׅ֪.ೃ࿐"
   settings.type ??= 'Owner'
   settings.link ??= 'https://api.yuki-wabot.my.id'
-  settings.banner ??= 'https://cdn.yuki-wabot.my.id/files/tCVD.jpeg'
-  settings.icon ??= 'https://cdn.yuki-wabot.my.id/files/PJDp.jpeg'
+  settings.banner ??= 'https://files.evogb.win/6CW7wR.png'
+  settings.icon ??= 'https://files.evogb.win/MThi6J.jpg'
   settings.currency ??= 'Yenes'
   settings.namebot ??= 'Tohka'
   settings.botname ??= 'Tohka Yatogami'  
