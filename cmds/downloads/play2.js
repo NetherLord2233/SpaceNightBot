@@ -49,50 +49,56 @@ export default {
         console.error("Error al obtener info del video:", err)
       }
 
-      // Obtenemos el link de la API única solicitada (Zenzxz)
       const video = await getVideoFromApis(url)
       
       if (!video?.url) {
-        return m.reply('《✧》 No se pudo obtener el enlace de descarga. Intenta más tarde.')
+        return m.reply('《✧》 No se pudo obtener el enlace de descarga de la API.')
       }
 
-      await m.reply('⏳ Descargando video como documento para evitar errores, espera un momento...')
+      await m.reply('⏳ Extrayendo archivo desde el servidor...')
 
-      // Descarga pesada con Axios
       const response = await axios({
         method: 'get',
         url: video.url,
         responseType: 'arraybuffer',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
-          'Accept': '*/*'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Referer': 'https://api.zenzxz.my.id/'
         }
       })
 
       const videoBuffer = Buffer.from(response.data)
 
+      // 🔥 EL DETECTOR DE MENTIRAS: Leemos los primeros caracteres del archivo
+      const fileHeader = videoBuffer.toString('utf-8', 0, 50).toLowerCase()
+      
+      // Si el archivo empieza con etiquetas HTML, significa que el host bloqueó tu bot
+      if (fileHeader.includes('<!doctype html>') || fileHeader.includes('<html') || fileHeader.includes('error')) {
+         console.log("ALERTA: El servidor devolvió este código HTML en vez de video:", fileHeader)
+         return m.reply('❌ *Error de Seguridad:* El servidor de Zenzxz/SaveTube ha bloqueado tu Host y envió una página de error en lugar del video. (Por eso WhatsApp decía que era peligroso).')
+      }
+
       if (videoBuffer.length < 50000) {
         return m.reply('《✧》 El archivo descargado está corrupto o vacío.')
       }
 
-      // 🔥 ENVIAR COMO DOCUMENTO (Esto soluciona el error de "no abre")
+      // Si pasa el detector, lo enviamos normal como VIDEO (ya sabemos que está limpio)
       await client.sendMessage(m.chat, { 
-        document: videoBuffer, 
+        video: videoBuffer, 
         mimetype: 'video/mp4',
         fileName: `${title || 'video'}.mp4`,
-        caption: `> 🎥 *${title || 'Video'}*\n> Enviado como documento para asegurar la calidad.`
+        caption: `> 🎥 *${title || 'Video'}*`
       }, { quoted: m })
 
     } catch (e) {
       console.error(e)
-      await m.reply(`> Error al procesar el documento: *${e.message}*`)
+      await m.reply(`> Error al procesar: *${e.message}*`)
     }
   }
 }
 
 async function getVideoFromApis(url) {
   try {
-    // Usamos el formato 480p como pediste
     const endpoint = `https://api.zenzxz.my.id/download/youtube?url=${encodeURIComponent(url)}&format=480`
     const res = await fetch(endpoint).then(r => r.json())
     
