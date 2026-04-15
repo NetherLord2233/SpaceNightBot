@@ -31,48 +31,54 @@ export default {
           url = videoInfo.url
           title = videoInfo.title
           thumbBuffer = await getBuffer(videoInfo.image)
-          
-          // 🔥 NUEVO FORMATO DE MENSAJE BASADO EN TU EJEMPLO
-          const infoMessage = `*${title}*\n*⇄ㅤ     ◁   ㅤ  ❚❚ㅤ     ▷ㅤ     ↻*\n\n*⏰ Duración:* ${videoInfo.timestamp || 'Desconocido'}\n*👉🏻 Aguarde un momento en lo que envío su video*`
-          
+          const vistas = (videoInfo.views || 0).toLocaleString()
+          const canal = videoInfo.author?.name || 'Desconocido'
+
+          // FORMATO ORIGINAL DE TU BOT
+          const infoMessage = `➩ Descargando › *${title}*
+
+> ❖ Canal › *${canal}*
+> ⴵ Duración › *${videoInfo.timestamp || 'Desconocido'}*
+> ❀ Vistas › *${vistas}*
+> ✩ Publicado › *${videoInfo.ago || 'Desconocido'}*
+> ❒ Enlace › *${url}*`
+
           await client.sendMessage(m.chat, { image: thumbBuffer, caption: infoMessage }, { quoted: m })
         }
       } catch (err) {
         console.error("Error al obtener info del video:", err)
       }
 
-      // Pedimos el enlace a la nueva lista de APIs
+      // Obtenemos el link de las nuevas APIs
       const video = await getVideoFromApis(url, title)
       
       if (!video?.url) {
-        return m.reply('《✧》 No se pudo descargar el *video*, las APIs están caídas. Intenta más tarde.')
+        return m.reply('《✧》 No se pudo descargar el *video*, las APIs están temporalmente caídas. Intenta más tarde.')
       }
 
-      // 🔥 ENVÍO DIRECTO POR URL PARA EVITAR CORRUPCIÓN DE ARCHIVO
+      // ENVÍO DIRECTO POR URL PARA EVITAR ERRORES DE MEMORIA
       await client.sendMessage(m.chat, { 
         video: { url: video.url }, 
-        caption: `> 🎥 *${title || 'Video'}*\n> Descargado vía: ${video.api}`,
         fileName: `${title || 'video'}.mp4`, 
         mimetype: 'video/mp4' 
       }, { quoted: m })
 
     } catch (e) {
       console.error(e)
-      await m.reply(`> Ocurrió un error inesperado al ejecutar *${usedPrefix + command}*.\n> [Error: *${e.message}*]`)
+      await m.reply(`> An unexpected error occurred while executing command *${usedPrefix + command}*. Please try again or contact support if the issue persists.\n> [Error: *${e.message}*]`)
     }
   }
 }
 
-// 🔥 LISTA DE APIS EXTRAÍDAS DEL EJEMPLO Y FUSIONADAS
+// 🔥 SISTEMA DE APIS CON MITZUKI COMO PRINCIPAL (EVOGB ELIMINADO)
 async function getVideoFromApis(url, title = "") {
   const apis = [
-    // La API de EvoGB que ya teníamos como principal
     { 
-      api: 'EvoGB', 
-      endpoint: `https://api.evogb.org/dl/youtubeplay?query=${encodeURIComponent(url)}&type=video&quality=480&key=Alba070503`, 
-      extractor: res => res?.data?.download?.url 
+      api: 'Mitzuki', 
+      endpoint: `https://api.mitzuki.xyz/api/downloader/ytmp4?url=${encodeURIComponent(url)}&apikey=elrebelde21`, 
+      // Extracción basada en tu JSON: data.media.dl_download
+      extractor: res => res?.data?.media?.dl_download || res?.data?.media?.dl_inline
     },
-    // Nuevas APIs extraídas del código de ejemplo
     { 
       api: 'Siputzx', 
       endpoint: `https://api.siputzx.my.id/api/d/ytmp4?url=${encodeURIComponent(url)}`, 
@@ -80,27 +86,20 @@ async function getVideoFromApis(url, title = "") {
     },
     { 
       api: 'Neoxr', 
-      endpoint: `https://api.neoxr.eu/api/youtube?url=${encodeURIComponent(url)}&type=video&quality=720p&apikey=GataDios`, 
+      endpoint: `https://api.neoxr.eu/api/youtube?url=${encodeURIComponent(url)}&type=video&quality=480p&apikey=GataDios`, 
       extractor: res => res?.data?.url 
     },
     { 
       api: 'Fgmods', 
       endpoint: `https://api.fgmods.xyz/api/downloader/ytmp4?url=${encodeURIComponent(url)}&apikey=elrebelde21`, 
       extractor: res => res?.result?.dl_url 
-    },
-    { 
-      api: 'Exonity', 
-      // Exonity usa el título de la canción en lugar de la URL según el código de ejemplo
-      endpoint: `https://exonity.tech/api/dl/playmp4?query=${encodeURIComponent(title || url)}`, 
-      extractor: res => res?.result?.download 
     }
   ]
 
-  // Bucle que intenta descargar de una API, y si falla, pasa a la siguiente
   for (const { api, endpoint, extractor } of apis) {
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 20000) // 20 segundos por API
+      const timeout = setTimeout(() => controller.abort(), 20000) 
       
       const response = await fetch(endpoint, { signal: controller.signal })
       const res = await response.json()
@@ -109,8 +108,8 @@ async function getVideoFromApis(url, title = "") {
       
       const link = extractor(res)
       if (link) {
-        console.log(`✅ Enlace encontrado usando API: ${api}`)
-        return { url: link, api }
+        console.log(`✅ Video descargado usando API: ${api}`)
+        return { url: link }
       }
       
     } catch (e) {
