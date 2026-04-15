@@ -8,7 +8,7 @@ function initDB(m, client) {
   settings.prefix ??= ['/', '!', '.', '#']
   settings.commandsejecut ??= isNumber(settings.commandsejecut) ? settings.commandsejecut : 0
   settings.id ??= '120363198641161536@newsletter'
-  settings.nameid ??= "'ೃ࿔  tׁׅᨵׁׅׅhׁׅ֮ƙׁׅɑׁׅ ᨮׁׅ֮ɑׁׅtׁׅᨵׁׅׅᧁׁɑׁׅꩇׁׅ֪݊ ꪱׁׁׁׅׅׅ - ᝯׁ֒hׁׅ֮ɑׁׅ݊ꪀ݊ꪀꫀׁׅܻ݊ᥣׁׅ֪ ᨵׁׅׅܻ⨍ܻ⨍ꪱׁׁׁׅׅׅᝯׁ֒ꪱׁׁׁׅׅׅɑׁׅᥣׁׅ֪.ೃ࿐'"
+  settings.nameid ??= 'ೃ࿔  tׁׅᨵׁׅׅhׁׅ֮ƙׁׅɑׁׅ ᨮׁׅ֮ɑׁׅtׁׅᨵׁׅׅᧁׁɑׁׅꩇׁׅ֪݊ ꪱׁׁׁׅׅׅ - ᝯׁ֒hׁׅ֮ɑׁׅ݊ꪀ݊ꪀꫀׁׅܻ݊ᥣׁׅ֪ ᨵׁׅׅܻ⨍ܻ⨍ꪱׁׁׁׅׅׅᝯׁ֒ꪱׁׁׁׅׅׅɑׁׅᥣׁׅ֪.ೃ࿐'
   settings.type ??= 'Owner'
   settings.link ??= 'https://api.evogb.org.'
   settings.banner ??= 'https://cdn.evogb.org/Alba070503/HqIEk-1776246505896__1_.png'
