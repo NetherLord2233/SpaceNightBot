@@ -49,14 +49,16 @@ export default {
         console.error("Error al obtener info del video:", err)
       }
 
-      // Obtenemos el link de la API de Zenzxz
+      // Obtenemos el link de la API única solicitada (Zenzxz)
       const video = await getVideoFromApis(url)
       
       if (!video?.url) {
-        return m.reply('《✧》 No se pudo descargar el *video*, la API está saturada. Intenta más tarde.')
+        return m.reply('《✧》 No se pudo obtener el enlace de descarga. Intenta más tarde.')
       }
 
-      // 🔥 DESCARGA CON AXIOS PARA EVITAR CORRUPCIÓN
+      await m.reply('⏳ Descargando video como documento para evitar errores, espera un momento...')
+
+      // Descarga pesada con Axios
       const response = await axios({
         method: 'get',
         url: video.url,
@@ -69,31 +71,29 @@ export default {
 
       const videoBuffer = Buffer.from(response.data)
 
-      // Verificamos si el video no es demasiado pequeño (error)
       if (videoBuffer.length < 50000) {
-        return m.reply('《✧》 El archivo descargado no es válido. Prueba con otro enlace.')
+        return m.reply('《✧》 El archivo descargado está corrupto o vacío.')
       }
 
-      // 🔥 ENVIAMOS CON THUMBNAIL Y CAPTION PARA QUE WHATSAPP LO RECONOZCA
+      // 🔥 ENVIAR COMO DOCUMENTO (Esto soluciona el error de "no abre")
       await client.sendMessage(m.chat, { 
-        video: videoBuffer, 
+        document: videoBuffer, 
         mimetype: 'video/mp4',
-        caption: `> 🎥 *${title || 'Video'}*`,
         fileName: `${title || 'video'}.mp4`,
-        thumbnail: thumbBuffer // Esto ayuda a WhatsApp a cargar el video correctamente
+        caption: `> 🎥 *${title || 'Video'}*\n> Enviado como documento para asegurar la calidad.`
       }, { quoted: m })
 
     } catch (e) {
       console.error(e)
-      await m.reply(`> Error crítico: *${e.message}*`)
+      await m.reply(`> Error al procesar el documento: *${e.message}*`)
     }
   }
 }
 
 async function getVideoFromApis(url) {
   try {
-    // 🔥 CAMBIAMOS A format=360 PARA ASEGURAR COMPATIBILIDAD DE CÓDEC
-    const endpoint = `https://api.zenzxz.my.id/download/youtube?url=${encodeURIComponent(url)}&format=360`
+    // Usamos el formato 480p como pediste
+    const endpoint = `https://api.zenzxz.my.id/download/youtube?url=${encodeURIComponent(url)}&format=480`
     const res = await fetch(endpoint).then(r => r.json())
     
     if (res.status && res.result?.download) {
