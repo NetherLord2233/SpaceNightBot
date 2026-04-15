@@ -1,19 +1,3 @@
-import "./settings.js";
-import main from './main.js';
-import events from './cmds/events.js';
-import { Browsers, makeWASocket, makeCacheableSignalKeyStore, useMultiFileAuthState, fetchLatestBaileysVersion, jidDecode, DisconnectReason } from "@whiskeysockets/baileys";
-import cfonts from 'cfonts';
-import pino from "pino";
-import qrcode from "qrcode-terminal";
-import chalk from "chalk";
-import fs from "fs";
-import path from "path";
-import readlineSync from "readline-sync";
-import os from "os";
-import { smsg } from "./core/message.js";
-import db from "./core/system/database.js";
-import { startSubBot } from './core/subs.js';
-import { exec } from "child_process";
 
 const log = {
   info: (msg) => console.log(chalk.bgBlue.white.bold(`INFO`), chalk.white(msg)),
@@ -150,37 +134,6 @@ if (methodCodeQR) {
     phoneNumber = normalizePhoneForPairing(phoneInput);
   }
 }
-
-let reconexion = 0;
-const intentos = 15;
-async function startBot() {
-  const { state, saveCreds } = await useMultiFileAuthState(global.sessionName);
-  const { version } = await fetchLatestBaileysVersion();
-  const logger = pino({ level: "silent" });
-  console.info = () => {};
-  console.debug = () => {};
-  const sock = makeWASocket({
-    version,
-    logger,
-    printQRInTerminal: false,
-    browser: Browsers.macOS('Chrome'),
-    auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, logger) },
-    markOnlineOnConnect: false,
-    generateHighQualityLinkPreview: true,
-    syncFullHistory: false,
-    getMessage: async () => "",
-    keepAliveIntervalMs: 45000,
-    maxIdleTimeMs: 60000,
-  });
-  global.client = sock;
-  sock.isInit = false;
-  sock.ev.on("creds.update", saveCreds);
-
-  if (opcion === "2" && !fs.existsSync("./Sessions/Owner/creds.json")) {
-    setTimeout(async () => {
-      try {
-        if (!state.creds.registered) {
-          const pairing = await global.client.requestPairingCode(phoneNumber);
           const codeBot = pairing?.match(/.{1,4}/g)?.join("-") || pairing;
           console.log(chalk.bold.white(chalk.bgMagenta(`Código de emparejamiento:`)), chalk.bold.white(chalk.white(codeBot)));
         }
