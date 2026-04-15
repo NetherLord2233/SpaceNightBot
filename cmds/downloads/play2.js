@@ -78,21 +78,6 @@ async function getVideoFromApis(url, title = "") {
       endpoint: `https://api.mitzuki.xyz/api/downloader/ytmp4?url=${encodeURIComponent(url)}&apikey=elrebelde21`, 
       // Extracción basada en tu JSON: data.media.dl_download
       extractor: res => res?.data?.media?.dl_download || res?.data?.media?.dl_inline
-    },
-    { 
-      api: 'Siputzx', 
-      endpoint: `https://api.siputzx.my.id/api/d/ytmp4?url=${encodeURIComponent(url)}`, 
-      extractor: res => res?.dl 
-    },
-    { 
-      api: 'Neoxr', 
-      endpoint: `https://api.neoxr.eu/api/youtube?url=${encodeURIComponent(url)}&type=video&quality=480p&apikey=GataDios`, 
-      extractor: res => res?.data?.url 
-    },
-    { 
-      api: 'Fgmods', 
-      endpoint: `https://api.fgmods.xyz/api/downloader/ytmp4?url=${encodeURIComponent(url)}&apikey=elrebelde21`, 
-      extractor: res => res?.result?.dl_url 
     }
   ]
 
