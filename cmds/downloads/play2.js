@@ -1,6 +1,5 @@
 import yts from 'yt-search'
 import axios from 'axios'
-import fetch from 'node-fetch'
 import { getBuffer } from '../../core/message.js'
 
 const isYTUrl = (url) => /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/i.test(url)
@@ -32,14 +31,12 @@ export default {
           url = videoInfo.url
           title = videoInfo.title
           thumbBuffer = await getBuffer(videoInfo.image)
-          const vistas = (videoInfo.views || 0).toLocaleString()
-          const canal = videoInfo.author?.name || 'Desconocido'
-
+          
           const infoMessage = `➩ Descargando › *${title}*
 
-> ❖ Canal › *${canal}*
+> ❖ Canal › *${videoInfo.author?.name || 'Desconocido'}*
 > ⴵ Duración › *${videoInfo.timestamp || 'Desconocido'}*
-> ❀ Vistas › *${vistas}*
+> ❀ Vistas › *${(videoInfo.views || 0).toLocaleString()}*
 > ✩ Publicado › *${videoInfo.ago || 'Desconocido'}*
 > ❒ Enlace › *${url}*`
 
@@ -49,13 +46,14 @@ export default {
         console.error("Error al obtener info del video:", err)
       }
 
+      // 🔥 USAMOS LA API QUE SÍ ENTREGA H.264 + AAC
       const video = await getVideoFromApis(url)
       
       if (!video?.url) {
-        return m.reply('《✧》 No se pudo obtener el enlace de descarga de la API.')
+        return m.reply('《✧》 No se pudo obtener el enlace de descarga compatible. Intenta más tarde.')
       }
 
-      await m.reply('⏳ Extrayendo archivo desde el servidor...')
+      await m.reply('⏳ Procesando video en formato H.264 compatible con WhatsApp...')
 
       const response = await axios({
         method: 'get',
@@ -63,26 +61,22 @@ export default {
         responseType: 'arraybuffer',
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Referer': 'https://api.zenzxz.my.id/'
+          'Accept': '*/*'
         }
       })
 
       const videoBuffer = Buffer.from(response.data)
 
-      // 🔥 EL DETECTOR DE MENTIRAS: Leemos los primeros caracteres del archivo
-      const fileHeader = videoBuffer.toString('utf-8', 0, 50).toLowerCase()
-      
-      // Si el archivo empieza con etiquetas HTML, significa que el host bloqueó tu bot
-      if (fileHeader.includes('<!doctype html>') || fileHeader.includes('<html') || fileHeader.includes('error')) {
-         console.log("ALERTA: El servidor devolvió este código HTML en vez de video:", fileHeader)
-         return m.reply('❌ *Error de Seguridad:* El servidor de Zenzxz/SaveTube ha bloqueado tu Host y envió una página de error en lugar del video. (Por eso WhatsApp decía que era peligroso).')
+      const checkContent = videoBuffer.toString('utf-8', 0, 100).toLowerCase()
+      if (checkContent.includes('<!doctype html>') || checkContent.includes('<html')) {
+         return m.reply('❌ El servidor bloqueó la descarga temporalmente.')
       }
 
       if (videoBuffer.length < 50000) {
-        return m.reply('《✧》 El archivo descargado está corrupto o vacío.')
+        return m.reply('❌ El archivo está dañado.')
       }
 
-      // Si pasa el detector, lo enviamos normal como VIDEO (ya sabemos que está limpio)
+      // 🔥 ENVIAR COMO VIDEO NORMAL (Ya debería abrir directamente en el chat)
       await client.sendMessage(m.chat, { 
         video: videoBuffer, 
         mimetype: 'video/mp4',
@@ -92,21 +86,22 @@ export default {
 
     } catch (e) {
       console.error(e)
-      await m.reply(`> Error al procesar: *${e.message}*`)
+      await m.reply(`> Error crítico: *${e.message}*`)
     }
   }
 }
 
 async function getVideoFromApis(url) {
   try {
-    const endpoint = `https://api.zenzxz.my.id/download/youtube?url=${encodeURIComponent(url)}&format=480`
-    const res = await fetch(endpoint).then(r => r.json())
+    // 🔥 CAMBIAMOS A SIPUTZX: Esta API es famosa por entregar el códec correcto para WhatsApp
+    const endpoint = `https://api.siputzx.my.id/api/d/ytmp4?url=${encodeURIComponent(url)}`
+    const res = await axios.get(endpoint)
     
-    if (res.status && res.result?.download) {
-      return { url: res.result.download }
+    if (res.data?.dl) {
+      return { url: res.data.dl }
     }
   } catch (e) {
-    console.log("Error en API Zenzxz:", e.message)
+    console.log("Error en API Siputzx:", e.message)
   }
   return null
 }
