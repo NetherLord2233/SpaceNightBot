@@ -1,109 +1,100 @@
-import fetch from "node-fetch"
-import yts from "yt-search"
-import axios from "axios"
+import yts from 'yt-search'
+import fetch from 'node-fetch'
+import { getBuffer } from '../../core/message.js'
 
-function formatViews(views) {
-  try {
-    return views >= 1000
-      ? `${(views / 1000).toFixed(1)}k (${views.toLocaleString()})`
-      : views.toString()
-  } catch {
-    return "0"
-  }
+const isYTUrl = (url) => /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/i.test(url)
+
+async function getVideoInfo(query, videoMatch) {
+  const search = await yts(query)
+  if (!search.all.length) return null
+  const videoInfo = videoMatch ? search.videos.find(v => v.videoId === videoMatch[1]) || search.all[0] : search.all[0]
+  return videoInfo || null
 }
 
 export default {
-  command: ['play', 'play2', 'mp3', 'yta', 'mp4', 'ytv'],
+  command: ['play', 'mp3', 'ytmp3', 'ytaudio', 'playaudio'],
   category: 'downloader',
-
-  run: async (client, m, args, command) => {
+  run: async (client, m, args, usedPrefix, command) => {
     try {
-      if (!args.length) {
-        return m.reply('✎ Ingresa el nombre de la música o video.')
+      if (!args[0]) {
+        return m.reply('《✧》Por favor, menciona el nombre o URL del video que deseas descargar')
+      }
+      
+      const text = args.join(' ')
+      const videoMatch = text.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/|v\/))([a-zA-Z0-9_-]{11})/)
+      const query = videoMatch ? 'https://youtu.be/' + videoMatch[1] : text
+      let url = query, title = null, thumbBuffer = null
+
+      try {
+        const videoInfo = await getVideoInfo(query, videoMatch)
+        if (videoInfo) {
+          url = videoInfo.url
+          title = videoInfo.title
+          thumbBuffer = await getBuffer(videoInfo.image)
+          const vistas = (videoInfo.views || 0).toLocaleString()
+          const canal = videoInfo.author?.name || 'Desconocido'
+          const infoMessage = `➩ Descargando › ${title}
+
+> ❖ Canal › *${canal}*
+> ⴵ Duración › *${videoInfo.timestamp || 'Desconocido'}*
+> ❀ Vistas › *${vistas}*
+> ✩ Publicado › *${videoInfo.ago || 'Desconocido'}*
+> ❒ Enlace › *${url}*`
+          await client.sendMessage(m.chat, { image: thumbBuffer, caption: infoMessage }, { quoted: m })
+        }
+      } catch (err) {
+        console.error("Error al obtener info del video:", err)
       }
 
-      let text = args.join(" ")
+      // Llamamos a la nueva función con la API actualizada
+      const audio = await getAudioFromApis(url)
+      
+      if (!audio?.url) {
+        return m.reply('《✧》 No se pudo descargar el *audio*, intenta más tarde o verifica el enlace.')
+      }
 
-      // 🔍 BUSCAR VIDEO
-      let search = await yts(text)
-      if (!search.all?.length) return m.reply('❌ No se encontraron resultados.')
-
-      let video = search.videos[0]
-      let { title, thumbnail, timestamp, views, ago, url } = video
-
-      let vistaTexto = formatViews(views)
-
-      // 📸 INFO BONITA
-      let mensaje = `┌──⊰🎵 YOUTUBE ⊱──
-│✍️ Título: ${title}
-│📆 Publicado: ${ago}
-│🕟 Duración: ${timestamp}
-│👁️ Visitas: ${vistaTexto}
-└──────────────`
-
-      await client.sendMessage(m.chat, {
-        image: { url: thumbnail },
-        caption: mensaje
+      const audioBuffer = await getBuffer(audio.url)
+      
+      await client.sendMessage(m.chat, { 
+        audio: audioBuffer, 
+        fileName: `${title || 'audio'}.mp3`, 
+        mimetype: 'audio/mpeg' 
       }, { quoted: m })
 
-      await m.reply('⏳ Descargando...')
-
-      // ================= AUDIO =================
-      if (['play', 'yta', 'mp3'].includes(command)) {
-
-        let dl = null
-
-        // 🔥 API 1 (EVOGB)
-        try {
-          let res = await fetch(`https://api.evogb.org/dl/ytmp3?url=${encodeURIComponent(url)}&key=Alba070503`)
-          let json = await res.json()
-          dl = json?.data?.dl
-        } catch {}
-
-        // 🔥 API 2 (FALLBACK)
-        if (!dl) {
-          try {
-            let res = await axios.get(`https://api.zenzxz.my.id/download/youtube?url=${encodeURIComponent(url)}&format=mp3`)
-            dl = res?.data?.result?.download
-          } catch {}
-        }
-
-        if (!dl) return m.reply('❌ No se pudo descargar el audio')
-
-        await client.sendMessage(m.chat, {
-          audio: { url: dl },
-          mimetype: "audio/mpeg",
-          fileName: `${title}.mp3`
-        }, { quoted: m })
-      }
-
-      // ================= VIDEO =================
-      else if (['play2', 'ytv', 'mp4'].includes(command)) {
-
-        let dl = null
-
-        try {
-          let res = await fetch(`https://api.evogb.org/dl/ytmp4?url=${encodeURIComponent(url)}&quality=480&key=Alba070503`)
-          let json = await res.json()
-          dl = json?.data?.dl
-        } catch {}
-
-        if (!dl) return m.reply('❌ No se pudo descargar el video')
-
-        await client.sendMessage(m.chat, {
-          video: { url: dl },
-          mimetype: "video/mp4",
-          caption: `🎬 ${title}`
-        }, { quoted: m })
-      }
-
-      else {
-        m.reply('❌ Comando no válido')
-      }
-
     } catch (e) {
-      console.error(e)
-      m.reply(`❌ Error:\n${e.message}`)
+      await m.reply(`> Ocurrió un error inesperado al ejecutar *${usedPrefix + command}*.\n> [Error: *${e.message}*]`)
     }
   }
+}
+
+async function getAudioFromApis(url) {
+  // Nueva API funcional inyectada aquí
+  const apis = [
+    { 
+      api: 'EvoGB', 
+      endpoint: `https://api.evogb.org/dl/ytmp3?url=${encodeURIComponent(url)}&key=Alba070503`, 
+      // Según la documentación que pasaste, el enlace de descarga está en data.dl
+      extractor: res => res?.data?.dl 
+    }
+  ]
+
+  for (const { api, endpoint, extractor } of apis) {
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 15000) // Aumenté el timeout a 15s por si la API demora en procesar
+      
+      const response = await fetch(endpoint, { signal: controller.signal })
+      const res = await response.json()
+      
+      clearTimeout(timeout)
+      
+      const link = extractor(res)
+      if (link) return { url: link, api }
+      
+    } catch (e) {
+      console.error(`Fallo en la API ${api}:`, e.message)
+    }
+  }
+  
+  return null
 }
