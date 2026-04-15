@@ -1,3 +1,4 @@
+/*
 import yts from 'yt-search'
 import fetch from 'node-fetch'
 import { getBuffer } from '../../core/message.js'
