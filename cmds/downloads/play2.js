@@ -17,8 +17,9 @@ async function getVideoInfo(query, videoMatch) {
 // 🔥 FUNCIÓN FFMPEG: Convierte cualquier video rebelde al formato sagrado de WhatsApp
 function convertToWhatsAppFormat(inputPath, outputPath) {
   return new Promise((resolve, reject) => {
-    // libx264 (Video) y aac (Audio) son los únicos que WhatsApp acepta al 100%
-    const command = `ffmpeg -i "${inputPath}" -c:v libx264 -c:a aac -preset superfast -crf 28 -b:a 128k -vf "scale='min(854,iw)':'min(480,ih)':force_original_aspect_ratio=decrease" -y "${outputPath}"`
+    // scale=... achica el video a 480p máximo. 
+    // crop=... fuerza a que los píxeles sean números PARES cortando 1px si es necesario (soluciona el error de libx264)
+    const command = `ffmpeg -i "${inputPath}" -c:v libx264 -c:a aac -preset superfast -crf 28 -b:a 128k -vf "scale='min(854,iw)':'min(480,ih)':force_original_aspect_ratio=decrease,crop=trunc(iw/2)*2:trunc(ih/2)*2" -y "${outputPath}"`
     
     exec(command, (error, stdout, stderr) => {
       if (error) {
