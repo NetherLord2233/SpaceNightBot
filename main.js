@@ -1,15 +1,3 @@
-import ws from 'ws';
-import moment from 'moment';
-import chalk from 'chalk';
-import fs from 'fs';
-import path from 'path';
-import gradient from 'gradient-string';
-import seeCommands from './core/system/commandLoader.js';
-import initDB from './core/system/initDB.js';
-import antilink from './cmds/antilink.js';
-import level from './cmds/level.js';
-import { getGroupAdmins } from './core/message.js';
-
 seeCommands();
 
 export default async (client, m) => {
